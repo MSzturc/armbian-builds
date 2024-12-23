@@ -36,18 +36,8 @@ jobs:
           echo "${JSON}"
           echo "::endgroup::"
 
-      - name: Create Matrix OrangePi
-        id: set-matrix-orangepi
-        run: |
-          JSON=$(find ${{ github.workspace }}/configs-orangepi -type f -name "board-*.conf" -printf '%f\n' | sed 's#board-##;s#.conf##' | jq -R -s -c 'split("\n")[:-1]')
-          echo "configfiles=${JSON}" >> $GITHUB_OUTPUT
-          echo "::group::Matrix OrangePi"
-          echo "${JSON}"
-          echo "::endgroup::"
-
     outputs:
       configfiles-armbian: ${{ steps.set-matrix-armbian.outputs.configfiles }}
-      configfiles-orangepi: ${{ steps.set-matrix-orangepi.outputs.configfiles }}
 
   release:
     name: Create Release
@@ -171,68 +161,9 @@ jobs:
           file: ./build/output/images/*.txt
           draft: true
 
-  build-orangepi:
-    name: Orangepi
-    needs: [ setup, release ]
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        configfile: ${{ fromJson(needs.setup.outputs.configfiles-orangepi) }}
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          path: build-configs
-
-      - name: Build image
-        uses: ./build-configs/actions/build-orangepi-image
-        with:
-          configfile: ${{ matrix.configfile }}
-
-      - name: Rename Files
-        run: |
-          WORKSPACE=$(echo ${{ github.workspace }})
-          cd $WORKSPACE/build/output/images/
-          mv */*.img ./orangepi-${{ matrix.configfile }}.img
-
-      - name: Compressing Image
-        run: |
-          WORKSPACE=$(echo ${{ github.workspace }})
-          cd $WORKSPACE/build/output/images/
-          xz -efkvz orangepi-${{ matrix.configfile }}.img || true
-
-      - name: Calculating checksums
-        run: |
-          WORKSPACE=$(echo ${{ github.workspace }})
-          cd $WORKSPACE/build/output/images/
-          sha256sum orangepi-${{ matrix.configfile }}.img > orangepi-${{ matrix.configfile }}.img.sha256
-          sha256sum orangepi-${{ matrix.configfile }}.img.xz > orangepi-${{ matrix.configfile }}.img.xz.sha256
-
-      - name: Upload Image to Release
-        if: needs.release.outputs.id != ''
-        uses: xresloader/upload-to-github-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          release_id: ${{ needs.release.outputs.id }}
-          file: ./build/output/images/*.img.xz
-          draft: true
-
-      - name: Upload Checksum to Release
-        if: needs.release.outputs.id != ''
-        uses: xresloader/upload-to-github-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          release_id: ${{ needs.release.outputs.id }}
-          file: ./build/output/images/*.sha256
-          draft: true
-
   finish:
     name: Finish BuildTrain
-    needs: [release, build-armbian, build-orangepi]
+    needs: [release, build-armbian]
     runs-on: ubuntu-latest
     steps:
       - name: Publish Release
@@ -244,7 +175,7 @@ jobs:
 
   cleanup:
     name: Cleanup BuildTrain
-    needs: [release, build-armbian, build-orangepi]
+    needs: [release, build-armbian]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:

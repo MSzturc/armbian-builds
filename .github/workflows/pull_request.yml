@@ -29,12 +29,6 @@ jobs:
           JSON=$(find ${{ github.workspace }}/configs -type f -name "board-*.conf" -printf '%f\n' | sed 's#board-##;s#.conf##' | jq -R -s -c 'split("\n")[:-1]')
           echo "configfiles=${JSON}" >> $GITHUB_OUTPUT
 
-      - name: Create Matrix OrangePi
-        id: set-matrix-all-orangepi
-        run: |
-          JSON=$(find ${{ github.workspace }}/configs-orangepi -type f -name "board-*.conf" -printf '%f\n' | sed 's#board-##;s#.conf##' | jq -R -s -c 'split("\n")[:-1]')
-          echo "configfiles=${JSON}" >> $GITHUB_OUTPUT
-
       - name: Create Matrix Armbian
         id: set-matrix-armbian
         uses: actions/github-script@v7
@@ -54,28 +48,8 @@ jobs:
             
             //return otherChangedFiles.length ? ALL_FILES : JSON.stringify(outputArray)
 
-      - name: Create Matrix OrangePi
-        id: set-matrix-orangepi
-        uses: actions/github-script@v7
-        env:
-          JSON_STRING: ${{ steps.changed-files.outputs.added_modified }}
-          ALL_FILES: ${{ steps.set-matrix-all-orangepi.outputs.configfiles }}
-        with:
-          result-encoding: string
-          script: |
-            const { JSON_STRING, ALL_FILES } = process.env
-            const array = JSON.parse(JSON_STRING)
-            const otherChangedFiles = array.filter((file) => !file.startsWith('configs') || file.startsWith('configs-orangepi/config-default'))
-            const filteredArray = array.filter((file) => file.startsWith('configs-orangepi/board-') && file.endsWith('.conf'))
-            const outputArray = filteredArray.map((file) => file.slice(23, file.length - 5))
-            
-            return ALL_FILES
-            
-            //return otherChangedFiles.length ? ALL_FILES : JSON.stringify(outputArray)
-
     outputs:
       configfiles-armbian: ${{ steps.set-matrix-armbian.outputs.result }}
-      configfiles-orangepi: ${{ steps.set-matrix-orangepi.outputs.result }}
 
 
   build-armbian:
@@ -118,88 +92,6 @@ jobs:
 
           mv *.img ${IMAGE}.img
           mv *.txt ${IMAGE}.txt
-          
-          echo "::group::Images output after rename"
-          ls -lt
-          echo "::endgroup::"
-          
-          echo "::debug::Filename will be: ${IMAGE}"
-          
-          echo "image=${IMAGE}" >> $GITHUB_OUTPUT
-
-      - name: Compressing Image
-        run: |
-          WORKSPACE=$(echo ${{ github.workspace }})
-          cd $WORKSPACE/build/output/images/
-          xz -zkf --format=xz ${{ steps.rename-files.outputs.image }}.img || true
-          
-          echo "::group::Images output after compress"
-          ls -lt
-          echo "::endgroup::"
-
-      - name: Calculating checksums
-        run: |
-          WORKSPACE=$(echo ${{ github.workspace }})
-          cd $WORKSPACE/build/output/images/
-          sha256sum ${{ steps.rename-files.outputs.image }}.img > ${{ steps.rename-files.outputs.image }}.img.sha256
-          sha256sum ${{ steps.rename-files.outputs.image }}.img.xz > ${{ steps.rename-files.outputs.image }}.img.xz.sha256
-
-      - name: Upload Compressed Image
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.rename-files.outputs.image }}.img.xz
-          path: ${{ github.workspace }}/build/output/images/${{ steps.rename-files.outputs.image }}.img.xz
-
-      - name: Upload Compressed Image Checksum
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.rename-files.outputs.image }}.img.xz.sha256
-          path: ${{ github.workspace }}/build/output/images/${{ steps.rename-files.outputs.image }}.img.xz.sha256
-
-      - name: Upload Image Checksum
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.rename-files.outputs.image }}.img.sha256
-          path: ${{ github.workspace }}/build/output/images/${{ steps.rename-files.outputs.image }}.img.sha256
-
-  build-orangepi:
-    name: OPI
-    needs: [ setup ]
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        configfile: ${{ fromJson(needs.setup.outputs.configfiles-orangepi) }}
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          path: build-configs
-
-      - name: Build image
-        uses: ./build-configs/actions/build-orangepi-image
-        with:
-          configfile: ${{ matrix.configfile }}
-
-      - name: Rename Files
-        id: rename-files
-        run: |
-
-          source ./build-configs/configs-orangepi/config-default.conf
-          source ./build-configs/configs-orangepi/board-${{ matrix.configfile }}.conf
-
-          NOW="$(date +"%Y-%m-%d")"
-          IMAGE="${NOW}-orangepi-${{ matrix.configfile }}"
-
-          WORKSPACE=$(echo ${{ github.workspace }})
-          cd $WORKSPACE/build/output/images/
-          
-          echo "::group::Images output before rename"
-          ls -lt
-          echo "::endgroup::"
-
-          mv */*.img ./${IMAGE}.img
           
           echo "::group::Images output after rename"
           ls -lt
