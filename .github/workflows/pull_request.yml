@@ -101,6 +101,9 @@ jobs:
           
           echo "image=${IMAGE}" >> $GITHUB_OUTPUT
 
+      - name: Fix BOOT partition
+        uses: ./build-configs/actions/fix-boot-partition   
+
       - name: Compressing Image
         run: |
           WORKSPACE=$(echo ${{ github.workspace }})
