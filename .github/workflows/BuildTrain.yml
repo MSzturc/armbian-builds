@@ -13,6 +13,12 @@ on:
 
   # enable manual start of this workflow
   workflow_dispatch:
+    inputs:
+      build_nightly:
+        description: "Build nightly's?"
+        type: boolean
+        required: false
+        default: false
 
 # Allow to stop obsolete workflows
 concurrency:
@@ -29,11 +35,38 @@ jobs:
 
       - name: Create Matrix Armbian
         id: set-matrix-armbian
+        shell: bash
         run: |
-          JSON=$(find ${{ github.workspace }}/configs -type f -name "board-*.conf" -printf '%f\n' | sed 's#board-##;s#.conf##' | jq -R -s -c 'split("\n")[:-1]')
-          echo "configfiles=${JSON}" >> $GITHUB_OUTPUT
+          set -euo pipefail
+
+          # Collect config names (without board- prefix / .conf suffix)
+          ALL_JSON=$(find "${{ github.workspace }}/configs" -type f -name "board-*.conf" -printf '%f\n' \
+            | sed 's#^board-##;s#\.conf$##' \
+            | jq -R -s -c 'split("\n")[:-1]')
+
+          # Decide whether to include nightlies
+          EVENT_NAME="${{ github.event_name }}"
+          BUILD_NIGHTLY_INPUT="${{ github.event.inputs.build_nightly || 'false' }}"
+
+          INCLUDE_NIGHTLY="false"
+          if [[ "${EVENT_NAME}" == "schedule" ]]; then
+            INCLUDE_NIGHTLY="true"
+          elif [[ "${EVENT_NAME}" == "workflow_dispatch" && "${BUILD_NIGHTLY_INPUT}" == "true" ]]; then
+            INCLUDE_NIGHTLY="true"
+          fi
+
+          if [[ "${INCLUDE_NIGHTLY}" == "true" ]]; then
+            FILTERED_JSON="${ALL_JSON}"
+          else
+            # remove entries that contain 'nightly' (case-insensitive)
+            FILTERED_JSON=$(echo "${ALL_JSON}" | jq -c '[ .[] | select(test("nightly"; "i") | not) ]')
+          fi
+
+          echo "configfiles=${FILTERED_JSON}" >> "$GITHUB_OUTPUT"
           echo "::group::Matrix Armbian"
-          echo "${JSON}"
+          echo "event=${EVENT_NAME}"
+          echo "include_nightly=${INCLUDE_NIGHTLY}"
+          echo "${FILTERED_JSON}"
           echo "::endgroup::"
 
     outputs:
@@ -57,7 +90,7 @@ jobs:
         shell: bash
         run: |
           source ./build-configs/configs/config-default.conf
-          
+
           echo "armbian_repository=${ARMBIAN_REPOSITORY}" >> $GITHUB_OUTPUT
           echo "armbian_branch=${ARMBIAN_BRANCH}" >> $GITHUB_OUTPUT
 
