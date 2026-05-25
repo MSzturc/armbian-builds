@@ -1,6 +1,6 @@
-name: 'Fix BOOT partition type'
+name: 'Fix BOOT partition'
 author: 'Stefan Dej'
-description: 'Change partition type of BOOT partition to 0c - W95 FAT32 (LBA)'
+description: 'Make the FAT boot partition Windows-mountable: type 0c (W95 FAT32 LBA) and the MBR active flag'
 
 runs:
   using: 'composite'
@@ -19,31 +19,34 @@ runs:
         echo "::endgroup::"
         echo "disk_label=${DISK_LABEL}" >> $GITHUB_OUTPUT
 
-    - name: Get partition index with type 'ea'
+    - name: Find FAT boot partition
       id: get-partition
       if: steps.check-disk.outputs.disk_label == 'dos'
       shell: bash
       working-directory: "./build/output/images/"
       run: |
-        echo "::group::Finding partition with type 'ea'"
-        PARTITION_INDEX=$(fdisk -l *.img | grep -i "ea Linux extended" | awk '{print $1}' | grep -o '[0-9]*$' || echo "")
+        echo "::group::Finding the FAT boot partition"
+        # Armbian types the FAT boot partition 0xea; match that or an already-fixed 0x0c so the active flag below is applied either way
+        PARTITION_INDEX=$(fdisk -l *.img | grep -iE '(ea Linux extended|c W95 FAT32)' | head -1 | awk '{print $1}' | grep -o '[0-9]*$' || echo "")
         if [ -z "${PARTITION_INDEX}" ]; then
-          echo "No partition with type 'ea' found"
+          echo "No FAT boot partition found"
         fi
         echo "Found partition index: ${PARTITION_INDEX}"
         echo "::endgroup::"
         echo "partition_index=${PARTITION_INDEX}" >> $GITHUB_OUTPUT
 
-    - name: Change partition type to 0c
+    - name: Set FAT32 (LBA) type and active flag
       if: steps.check-disk.outputs.disk_label == 'dos' && steps.get-partition.outputs.partition_index != ''
       shell: bash
       working-directory: "./build/output/images/"
       run: |
-        echo "::group::Changing partition type to 0c"
+        echo "::group::Setting type 0c and active flag"
         IMAGE_FILE=$(ls *.img)
-        echo "Image file: ${IMAGE_FILE}"
-        echo "Partition index: ${{ steps.get-partition.outputs.partition_index }}"
-        sfdisk --part-type "${IMAGE_FILE}" ${{ steps.get-partition.outputs.partition_index }} 0c
+        INDEX="${{ steps.get-partition.outputs.partition_index }}"
+        echo "Image file: ${IMAGE_FILE}, partition index: ${INDEX}"
+        # 0c lets Windows recognise the FAT; the active flag makes Windows assign it a drive letter on removable media
+        sfdisk --part-type "${IMAGE_FILE}" "${INDEX}" 0c
+        sfdisk --activate "${IMAGE_FILE}" "${INDEX}"
         echo "::endgroup::"
 
     - name: Show updated partition table
