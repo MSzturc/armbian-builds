@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Create Matrix Armbian
         id: set-matrix-armbian
@@ -80,7 +80,7 @@ jobs:
       tag_name: ${{ steps.time.outputs.time }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: build-configs
           fetch-depth: 0
@@ -95,7 +95,7 @@ jobs:
           echo "armbian_branch=${ARMBIAN_BRANCH}" >> $GITHUB_OUTPUT
 
       - name: Checkout armbian Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
           repository: ${{ steps.config.outputs.armbian_repository }}
@@ -111,13 +111,12 @@ jobs:
 
       - name: Get time
         id: time
-        uses: nanzm/get-time-action@v2.0
-        with:
-          format: 'YYYYMMDD-HHmm'
+        shell: bash
+        run: echo "time=$(date -u +'%Y%m%d-%H%M')" >> "$GITHUB_OUTPUT"
 
       - name: Create empty release
         id: release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           name: ${{ steps.armbian-version.outputs.version }}-${{ steps.time.outputs.time }}
           tag_name: ${{ steps.time.outputs.time }}
@@ -134,7 +133,7 @@ jobs:
         configfile: ${{ fromJson(needs.setup.outputs.configfiles-armbian) }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
           path: build-configs
@@ -203,11 +202,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Publish Release
-        uses: eregon/publish-release@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          release_id: ${{ needs.release.outputs.id }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "${{ needs.release.outputs.tag_name }}" --draft=false --repo "${{ github.repository }}"
 
   cleanup:
     name: Cleanup BuildTrain
@@ -216,7 +213,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Delete drafts
-        uses: hugo19941994/delete-draft-releases@v1.0.0
+        uses: hugo19941994/delete-draft-releases@v3.0.0
         with:
           threshold: 2d
         env:

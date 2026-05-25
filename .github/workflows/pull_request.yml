@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Get changed Files
         id: changed-files
@@ -31,7 +31,7 @@ jobs:
 
       - name: Create Matrix Armbian
         id: set-matrix-armbian
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           JSON_STRING: ${{ steps.changed-files.outputs.added_modified }}
           ALL_FILES: ${{ steps.set-matrix-all-armbian.outputs.configfiles }}
@@ -62,7 +62,7 @@ jobs:
         configfile: ${{ fromJson(needs.setup.outputs.configfiles-armbian) }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
           path: build-configs
@@ -122,19 +122,19 @@ jobs:
           sha256sum ${{ steps.rename-files.outputs.image }}.img.xz > ${{ steps.rename-files.outputs.image }}.img.xz.sha256
 
       - name: Upload Compressed Image
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ steps.rename-files.outputs.image }}.img.xz
           path: ${{ github.workspace }}/build/output/images/${{ steps.rename-files.outputs.image }}.img.xz
 
       - name: Upload Compressed Image Checksum
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ steps.rename-files.outputs.image }}.img.xz.sha256
           path: ${{ github.workspace }}/build/output/images/${{ steps.rename-files.outputs.image }}.img.xz.sha256
 
       - name: Upload Image Checksum
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ steps.rename-files.outputs.image }}.img.sha256
           path: ${{ github.workspace }}/build/output/images/${{ steps.rename-files.outputs.image }}.img.sha256

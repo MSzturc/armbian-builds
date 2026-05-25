@@ -9,17 +9,6 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Free GitHub Runner
-      if: runner.arch != 'ARM64'
-      uses: descriptinc/free-disk-space@main
-      with:
-        android: true
-        dotnet: true
-        haskell: true
-        large-packages: true
-        docker-images: true
-        swap-storage: true
-
     - name: Read configs
       id: config
       shell: bash
@@ -31,7 +20,7 @@ runs:
         echo "armbian_branch=${ARMBIAN_BRANCH}" >> $GITHUB_OUTPUT
 
     - name: Checkout armbian Repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         fetch-depth: 1
         repository: ${{ steps.config.outputs.armbian_repository }}
@@ -41,7 +30,7 @@ runs:
     - name: Create config-default.conf
       shell: bash
       run: |
-        mkdir -p ./build/userpatches
+        mkdir -p ./build/userpatches/extensions
         cp ./build-configs/configs/config-default.conf ./build/userpatches/config-settings.conf
         cat ./build-configs/configs/board-${{ inputs.configfile }}.conf >> ./build/userpatches/config-settings.conf
         echo "::group::Output config-settings.conf"
