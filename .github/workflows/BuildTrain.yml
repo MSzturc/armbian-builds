@@ -143,6 +143,13 @@ jobs:
         with:
           configfile: ${{ matrix.configfile }}
 
+      - name: Assert Dragon Q6A image layout
+        if: startsWith(matrix.configfile, 'radxa_dragon_q6a')
+        run: |
+          WORKSPACE=$(echo ${{ github.workspace }})
+          IMG=$(ls ${WORKSPACE}/build/output/images/*.img | head -n 1)
+          sudo bash ${WORKSPACE}/build-configs/scripts/assert-q6a-image-layout.sh "${IMG}"
+
       - name: Rename Files
         run: |
           WORKSPACE=$(echo ${{ github.workspace }})

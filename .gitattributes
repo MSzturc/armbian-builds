@@ -1,0 +1,4 @@
+# Shell scripts and board configs are sourced by bash on Linux (CI build host)
+# and via WSL locally — keep them LF so a Windows checkout cannot inject CR.
+*.sh text eol=lf
+*.conf text eol=lf

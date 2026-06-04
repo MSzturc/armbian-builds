@@ -33,6 +33,10 @@ runs:
         mkdir -p ./build/userpatches/extensions
         cp ./build-configs/configs/config-default.conf ./build/userpatches/config-settings.conf
         cat ./build-configs/configs/board-${{ inputs.configfile }}.conf >> ./build/userpatches/config-settings.conf
+        # Deliver THEOS Armbian extensions (self-guarded per board).
+        if compgen -G "./build-configs/userpatches/extensions/*.sh" > /dev/null; then
+          cp ./build-configs/userpatches/extensions/*.sh ./build/userpatches/extensions/
+        fi
         echo "::group::Output config-settings.conf"
         cat ./build/userpatches/config-settings.conf
         echo "::endgroup::"
